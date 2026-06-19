@@ -1,0 +1,108 @@
+name: Daily V25 Multi-League Agent
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "run mode: daily, healthcheck, backtest, train_weights"
+        required: false
+        default: "daily"
+
+concurrency:
+  group: v25-football-agent-state
+  cancel-in-progress: false
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+      API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+      TELEGRAM_ENABLED: "true"
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      LOCAL_OUTPUT_DIR: "output"
+      DAYS_AHEAD: "7"
+      MAX_MATCHES: "80"
+      MIN_DATA_QUALITY: "7.0"
+      MIN_CONFIDENCE: "7.0"
+      MIN_EDGE: "0.04"
+      REQUIRE_ODDS_FOR_VALUE_PICK: "true"
+      MAX_ODDS_AGE_MINUTES: "180"
+      REQUIRE_FINAL_LINEUP_FOR_VALUE_PICK: "true"
+      MAX_VALUE_PICKS_PER_COMPETITION: "3"
+      MAX_VALUE_PICKS_PER_TEAM: "1"
+      MAX_VALUE_PICKS_PER_FIXTURE: "1"
+      MAX_TOTAL_UNITS_PER_DAY: "3.0"
+      KELLY_FRACTION: "0.25"
+      BANKROLL_UNITS: "100"
+      MAX_UNITS_PER_PICK: "2.0"
+      SEND_DAILY_REPORT: "true"
+      SEND_VALUE_ALERTS: "true"
+      SEND_HEARTBEAT: "true"
+      HEARTBEAT_MIN_HOUR_UTC: "17"
+      LIVE_SHEET_URL: ${{ vars.LIVE_SHEET_URL || '' }}
+      INTERNATIONAL_BREAK_DAYS_AFTER: "7"
+      # Optional configurable windows, e.g. "2026-09-01:2026-09-09,2026-10-05:2026-10-13"
+      INTERNATIONAL_BREAK_WINDOWS: ${{ vars.INTERNATIONAL_BREAK_WINDOWS || '' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Restore output cache
+        uses: actions/cache@v4
+        with:
+          path: output/
+          key: v25-output-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            v25-output-${{ runner.os }}-
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Tests
+        run: |
+          python smoke_test.py
+          python -m unittest discover -s tests
+
+      - name: Run Daily Agent
+        if: ${{ github.event_name == 'schedule' || github.event.inputs.mode == 'daily' || github.event.inputs.mode == '' }}
+        run: |
+          python run_agent.py
+
+      - name: Healthcheck
+        if: ${{ github.event.inputs.mode == 'healthcheck' }}
+        run: |
+          python -m football_agent.scripts.healthcheck
+
+      - name: Backtest
+        if: ${{ github.event.inputs.mode == 'backtest' }}
+        run: |
+          python -m football_agent.scripts.run_backtest
+
+      - name: Train model weights
+        if: ${{ github.event.inputs.mode == 'train_weights' }}
+        run: |
+          python -m football_agent.scripts.run_weight_training
+
+      - name: Upload output artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v25-football-agent-output
+          path: output/
+          if-no-files-found: ignore
