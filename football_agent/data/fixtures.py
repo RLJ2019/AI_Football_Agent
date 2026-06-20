@@ -1,4 +1,4 @@
-from **future** import annotations
+from __future__ import annotations
 
 from datetime import date, timedelta
 from typing import List
