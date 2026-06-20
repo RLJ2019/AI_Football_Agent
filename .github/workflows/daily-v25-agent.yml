@@ -47,7 +47,7 @@ jobs:
       SEND_VALUE_ALERTS: "true"
       SEND_HEARTBEAT: "true"
       HEARTBEAT_MIN_HOUR_UTC: "17"
-      LIVE_SHEET_URL: ${{ vars.LIVE_SHEET_URL || '' }}
+      LIVE_SHEET_URL: ${{ secrets.LIVE_SHEET_URL }}
       INTERNATIONAL_BREAK_DAYS_AFTER: "7"
       # Optional configurable windows, e.g. "2026-09-01:2026-09-09,2026-10-05:2026-10-13"
       INTERNATIONAL_BREAK_WINDOWS: ${{ vars.INTERNATIONAL_BREAK_WINDOWS || '' }}
