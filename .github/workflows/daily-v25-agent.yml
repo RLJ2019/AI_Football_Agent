@@ -29,7 +29,7 @@ jobs:
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       LOCAL_OUTPUT_DIR: "output"
       DAYS_AHEAD: "60"
-      MAX_MATCHES: "80"
+      MAX_MATCHES: "20"
       MIN_DATA_QUALITY: "7.0"
       MIN_CONFIDENCE: "7.0"
       MIN_EDGE: "0.04"
