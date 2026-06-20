@@ -28,7 +28,7 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       LOCAL_OUTPUT_DIR: "output"
-      DAYS_AHEAD: "7"
+      DAYS_AHEAD: "60"
       MAX_MATCHES: "80"
       MIN_DATA_QUALITY: "7.0"
       MIN_CONFIDENCE: "7.0"
