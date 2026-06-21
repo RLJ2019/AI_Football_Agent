@@ -48,9 +48,9 @@ FIXTURE_SOURCE: ${{ vars.FIXTURE_SOURCE || 'api_football' }}
       KELLY_FRACTION: "0.25"
       BANKROLL_UNITS: "100"
       MAX_UNITS_PER_PICK: "2.0"
-      SEND_DAILY_REPORT: "true"
-      SEND_VALUE_ALERTS: "true"
-      SEND_HEARTBEAT: "true"
+      SEND_DAILY_REPORT: "false"
+      SEND_VALUE_ALERTS: "false"
+      SEND_HEARTBEAT: "false"
       HEARTBEAT_MIN_HOUR_UTC: "17"
       LIVE_SHEET_URL: ${{ secrets.LIVE_SHEET_URL }}
       GOOGLE_SHEET_WEBHOOK_URL: ${{ secrets.LIVE_SHEET_URL }}
