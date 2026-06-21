@@ -30,6 +30,11 @@ jobs:
       LOCAL_OUTPUT_DIR: "output"
       DAYS_AHEAD: "60"
       MAX_MATCHES: "20"
+FIXTURE_TEST_MODE: ${{ vars.FIXTURE_TEST_MODE || 'false' }}
+FIXTURE_DATE_FROM: ${{ vars.FIXTURE_DATE_FROM || '' }}
+FIXTURE_DATE_TO: ${{ vars.FIXTURE_DATE_TO || '' }}
+FIXTURE_SEASON: ${{ vars.FIXTURE_SEASON || '' }}
+FIXTURE_SOURCE: ${{ vars.FIXTURE_SOURCE || 'api_football' }}
       MIN_DATA_QUALITY: "7.0"
       MIN_CONFIDENCE: "7.0"
       MIN_EDGE: "0.04"
