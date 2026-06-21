@@ -1,100 +1,119 @@
 name: Daily V25 Multi-League Agent
+
 on:
-  schedule:
-    - cron: "0 6 * * *"
-  workflow_dispatch:
-    inputs:
-      mode:
-        description: "run mode: daily, healthcheck, backtest, train_weights"
-        required: false
-        default: "daily"
+workflow_dispatch:
+inputs:
+mode:
+description: “Kies welke taak uitgevoerd moet worden”
+required: true
+default: “daily”
+type: choice
+options:
+- daily
+- healthcheck
+- backtest
+- train_weights
+
 concurrency:
-  group: v25-football-agent-state
-  cancel-in-progress: false
+group: v25-football-agent-state
+cancel-in-progress: false
+
 jobs:
-  run-agent:
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
-      API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
-      TELEGRAM_ENABLED: "true"
-      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      LOCAL_OUTPUT_DIR: "output"
-      DAYS_AHEAD: "60"
-      MAX_MATCHES: "20"
-      FIXTURE_TEST_MODE: ${{ vars.FIXTURE_TEST_MODE || 'false' }}
-      FIXTURE_DATE_FROM: ${{ vars.FIXTURE_DATE_FROM || '' }}
-      FIXTURE_DATE_TO: ${{ vars.FIXTURE_DATE_TO || '' }}
-      FIXTURE_SEASON: ${{ vars.FIXTURE_SEASON || '' }}
-      FIXTURE_SOURCE: ${{ vars.FIXTURE_SOURCE || 'api_football' }}
-      MIN_DATA_QUALITY: "7.0"
-      MIN_CONFIDENCE: "7.0"
-      MIN_EDGE: "0.04"
-      REQUIRE_ODDS_FOR_VALUE_PICK: "true"
-      MAX_ODDS_AGE_MINUTES: "180"
-      REQUIRE_FINAL_LINEUP_FOR_VALUE_PICK: "true"
-      MAX_VALUE_PICKS_PER_COMPETITION: "3"
-      MAX_VALUE_PICKS_PER_TEAM: "1"
-      MAX_VALUE_PICKS_PER_FIXTURE: "1"
-      MAX_TOTAL_UNITS_PER_DAY: "3.0"
-      KELLY_FRACTION: "0.25"
-      BANKROLL_UNITS: "100"
-      MAX_UNITS_PER_PICK: "2.0"
-      SEND_DAILY_REPORT: "false"
-      SEND_VALUE_ALERTS: "false"
-      SEND_HEARTBEAT: "false"
-      HEARTBEAT_MIN_HOUR_UTC: "17"
-      LIVE_SHEET_URL: ${{ secrets.LIVE_SHEET_URL }}
-      GOOGLE_SHEET_WEBHOOK_URL: ${{ secrets.LIVE_SHEET_URL }}
-      INTERNATIONAL_BREAK_DAYS_AFTER: "7"
-      # Optional configurable windows, e.g. "2026-09-01:2026-09-09,2026-10-05:2026-10-13"
-      INTERNATIONAL_BREAK_WINDOWS: ${{ vars.INTERNATIONAL_BREAK_WINDOWS || '' }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Restore output cache
-        uses: actions/cache@v4
-        with:
-          path: output/
-          key: v25-output-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            v25-output-${{ runner.os }}-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Tests
-        run: |
-          python smoke_test.py
-          python -m unittest discover -s tests
-      - name: Run Daily Agent
-        if: ${{ github.event_name == 'schedule' || github.event.inputs.mode == 'daily' || github.event.inputs.mode == '' }}
-        run: |
-          python run_agent.py
-      - name: Healthcheck
-        if: ${{ github.event.inputs.mode == 'healthcheck' }}
-        run: |
-          python -m football_agent.scripts.healthcheck
-      - name: Backtest
-        if: ${{ github.event.inputs.mode == 'backtest' }}
-        run: |
-          python -m football_agent.scripts.run_backtest
-      - name: Train model weights
-        if: ${{ github.event.inputs.mode == 'train_weights' }}
-        run: |
-          python -m football_agent.scripts.run_weight_training
-      - name: Upload output artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: v25-football-agent-output
-          path: output/
-          if-no-files-found: ignore
+run-agent:
+runs-on: ubuntu-latest
+timeout-minutes: 45
+
+env:
+  FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+  API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+  GEMINI_MODEL: ${{ secrets.GEMINI_MODEL }}
+  TELEGRAM_ENABLED: "true"
+  TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+  TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+  LOCAL_OUTPUT_DIR: "output"
+  DAYS_AHEAD: "60"
+  MAX_MATCHES: "20"
+  # Hiermee controleren we of GitHub echt deze workflow gebruikt
+  CONFIG_MARKER: "HISTORICAL-TEST-2024"
+  # Historische testomgeving
+  FIXTURE_TEST_MODE: "true"
+  FIXTURE_DATE_FROM: "2024-09-13"
+  FIXTURE_DATE_TO: "2024-09-16"
+  FIXTURE_SEASON: "2024"
+  FIXTURE_SOURCE: "api_football"
+  MIN_DATA_QUALITY: "7.0"
+  MIN_CONFIDENCE: "7.0"
+  MIN_EDGE: "0.04"
+  REQUIRE_ODDS_FOR_VALUE_PICK: "true"
+  MAX_ODDS_AGE_MINUTES: "180"
+  REQUIRE_FINAL_LINEUP_FOR_VALUE_PICK: "true"
+  MAX_VALUE_PICKS_PER_COMPETITION: "3"
+  MAX_VALUE_PICKS_PER_TEAM: "1"
+  MAX_VALUE_PICKS_PER_FIXTURE: "1"
+  MAX_TOTAL_UNITS_PER_DAY: "3.0"
+  KELLY_FRACTION: "0.25"
+  BANKROLL_UNITS: "100"
+  MAX_UNITS_PER_PICK: "2.0"
+  # Geen historische testmeldingen naar Telegram sturen
+  SEND_DAILY_REPORT: "false"
+  SEND_VALUE_ALERTS: "false"
+  SEND_HEARTBEAT: "false"
+  HEARTBEAT_MIN_HOUR_UTC: "17"
+  LIVE_SHEET_URL: ${{ secrets.LIVE_SHEET_URL }}
+  GOOGLE_SHEET_WEBHOOK_URL: ${{ secrets.LIVE_SHEET_URL }}
+  INTERNATIONAL_BREAK_DAYS_AFTER: "7"
+  INTERNATIONAL_BREAK_WINDOWS: ${{ vars.INTERNATIONAL_BREAK_WINDOWS || '' }}
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
+  - name: Restore output cache
+    uses: actions/cache@v4
+    with:
+      path: output/
+      key: v25-output-${{ runner.os }}-${{ github.run_id }}
+      restore-keys: |
+        v25-output-${{ runner.os }}-
+  - name: Set up Python
+    uses: actions/setup-python@v5
+    with:
+      python-version: "3.11"
+  - name: Install dependencies
+    run: |
+      python -m pip install --upgrade pip
+      pip install -r requirements.txt
+  - name: Show active configuration
+    run: |
+      echo "CONFIG_MARKER=$CONFIG_MARKER"
+      echo "FIXTURE_TEST_MODE=$FIXTURE_TEST_MODE"
+      echo "FIXTURE_DATE_FROM=$FIXTURE_DATE_FROM"
+      echo "FIXTURE_DATE_TO=$FIXTURE_DATE_TO"
+      echo "FIXTURE_SEASON=$FIXTURE_SEASON"
+      echo "FIXTURE_SOURCE=$FIXTURE_SOURCE"
+  - name: Tests
+    run: |
+      python smoke_test.py
+      python -m unittest discover -s tests
+  - name: Run Daily Agent
+    if: ${{ inputs.mode == 'daily' }}
+    run: |
+      python run_agent.py
+  - name: Healthcheck
+    if: ${{ inputs.mode == 'healthcheck' }}
+    run: |
+      python -m football_agent.scripts.healthcheck
+  - name: Backtest
+    if: ${{ inputs.mode == 'backtest' }}
+    run: |
+      python -m football_agent.scripts.run_backtest
+  - name: Train model weights
+    if: ${{ inputs.mode == 'train_weights' }}
+    run: |
+      python -m football_agent.scripts.run_weight_training
+  - name: Upload output artifacts
+    if: always()
+    uses: actions/upload-artifact@v4
+    with:
+      name: v25-football-agent-output
+      path: output/
+      if-no-files-found: ignore
