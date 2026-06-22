@@ -71,6 +71,7 @@ class NotificationState:
         previous: Optional[Dict] = self.state.get("picks", {}).get(key)
         previous_status = previous.get("status") if previous else None
         previous_signature = previous.get("signature") if previous else None
+        previous_sent = bool(previous.get("sent")) if previous else False
         current_signature = self.signature(pick)
 
         if pick.status == "VALUE_PICK":
@@ -80,9 +81,11 @@ class NotificationState:
                 return NotificationDecision("upgraded_to_value_pick", True, False, f"Status ging van {previous_status} naar VALUE_PICK.")
             if previous_signature != current_signature:
                 return NotificationDecision("value_pick_changed", True, False, "Bestaande value pick is inhoudelijk gewijzigd.")
+            if not previous_sent:
+                return NotificationDecision("new_value_pick", True, False, "Eerdere verzending was niet succesvol; opnieuw aanbieden.")
             return NotificationDecision("duplicate_value_pick", False, False, "Value pick is al verstuurd.")
 
-        if previous_status == "VALUE_PICK" and pick.status != "VALUE_PICK":
+        if previous_status == "VALUE_PICK" and previous_sent and pick.status != "VALUE_PICK":
             # Premium UX: a withdrawal is as urgent as the original value-pick alert.
             # Members may already have acted on the pick, so this must be loud.
             return NotificationDecision("value_pick_withdrawn", True, False, f"Value pick ingetrokken naar {pick.status}.")

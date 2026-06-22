@@ -4,6 +4,7 @@ import os
 
 
 def main() -> None:
+    os.environ.setdefault("AGENT_RUN_TYPE", "lineup_monitor")
     # Frequent, lightweight run: only fixtures inside the dynamic T-65..T-45 minute
     # line-up window are analysed. Daily summary is disabled; only new/changed VALUE
     # alerts or withdrawals are posted.

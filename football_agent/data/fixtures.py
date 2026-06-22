@@ -17,10 +17,8 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 def _env_date(name: str) -> Optional[date]:
     value = os.getenv(name, "").strip()
-
     if not value:
         return None
-
     try:
         return date.fromisoformat(value)
     except ValueError as exc:
@@ -28,6 +26,18 @@ def _env_date(name: str) -> Optional[date]:
             f"{name} heeft een ongeldige datum: {value}. "
             "Gebruik formaat YYYY-MM-DD, bijvoorbeeld 2024-09-13."
         ) from exc
+
+
+def _normalize_source(value: str) -> str:
+    normalized = value.strip().lower().replace("-", "_")
+    aliases = {
+        "football_data": "football_data",
+        "api_football": "api_football",
+        "auto": "auto",
+    }
+    if normalized not in aliases:
+        raise ValueError("FIXTURE_SOURCE moet auto, football-data/football_data of api-football/api_football zijn.")
+    return aliases[normalized]
 
 
 class FixtureProvider:
@@ -43,154 +53,71 @@ class FixtureProvider:
         raw = load_competitions()
         return [Competition(**c) for c in raw.get("competitions", [])]
 
-    def upcoming(
-        self,
-        days_ahead: int = 7,
-        max_matches: int = 80,
-    ) -> List[Fixture]:
+    def upcoming(self, days_ahead: int = 7, max_matches: int = 80) -> List[Fixture]:
         config = load_competitions()
         today = date.today()
-
         configured_season = int(config.get("season", today.year))
         test_mode = _env_bool("FIXTURE_TEST_MODE", False)
 
         if test_mode:
             date_from = _env_date("FIXTURE_DATE_FROM")
             date_to = _env_date("FIXTURE_DATE_TO")
-
             if date_from is None or date_to is None:
                 raise RuntimeError(
-                    "FIXTURE_TEST_MODE staat aan, maar FIXTURE_DATE_FROM "
-                    "of FIXTURE_DATE_TO ontbreekt."
+                    "FIXTURE_TEST_MODE staat aan, maar FIXTURE_DATE_FROM of FIXTURE_DATE_TO ontbreekt."
                 )
-
             if date_to < date_from:
-                raise RuntimeError(
-                    "FIXTURE_DATE_TO mag niet vóór FIXTURE_DATE_FROM liggen."
-                )
-
-            season_raw = os.getenv(
-                "FIXTURE_SEASON",
-                str(configured_season),
-            ).strip()
-
+                raise RuntimeError("FIXTURE_DATE_TO mag niet vóór FIXTURE_DATE_FROM liggen.")
+            season_raw = os.getenv("FIXTURE_SEASON", str(configured_season)).strip()
             try:
                 season = int(season_raw)
             except ValueError as exc:
-                raise ValueError(
-                    f"FIXTURE_SEASON moet een jaartal zijn. Ontvangen: {season_raw}"
-                ) from exc
-
-            source = os.getenv(
-                "FIXTURE_SOURCE",
-                "api_football",
-            ).strip().lower()
-
-            if source not in {
-                "auto",
-                "football_data",
-                "api_football",
-            }:
-                raise ValueError(
-                    "FIXTURE_SOURCE moet auto, football_data "
-                    "of api_football zijn."
-                )
-
+                raise ValueError(f"FIXTURE_SEASON moet een jaartal zijn. Ontvangen: {season_raw}") from exc
+            source = _normalize_source(os.getenv("FIXTURE_SOURCE", "api_football"))
             print("Fixture mode: TEST")
         else:
             date_from = today
             date_to = today + timedelta(days=days_ahead)
             season = configured_season
             source = "auto"
-
             print("Fixture mode: LIVE")
 
         print(
-            f"Fixture scan: {date_from} t/m {date_to} | "
-            f"season={season} | source={source} | "
-            f"days_ahead={days_ahead}"
+            f"Fixture scan: {date_from} t/m {date_to} | season={season} | "
+            f"source={source} | days_ahead={days_ahead}"
         )
 
         fixtures: List[Fixture] = []
-
         for comp in self.competitions():
             got: List[Fixture] = []
-
             print(
-                f"Scan competitie: {comp.name} | "
-                f"football_data_code={comp.football_data_code} | "
+                f"Scan competitie: {comp.name} | football_data_code={comp.football_data_code} | "
                 f"api_football_league_id={comp.api_football_league_id}"
             )
+            use_football_data = source in {"auto", "football_data"}
+            use_api_football = source in {"auto", "api_football"}
 
-            use_football_data = source in {
-                "auto",
-                "football_data",
-            }
-
-            use_api_football = source in {
-                "auto",
-                "api_football",
-            }
-
-            if (
-                use_football_data
-                and self.football_data.enabled
-                and comp.football_data_code
-            ):
+            if use_football_data and self.football_data.enabled and comp.football_data_code:
                 try:
-                    got = self.football_data.matches(
-                        comp,
-                        date_from,
-                        date_to,
-                    )
-
-                    print(
-                        f"{comp.name}: football-data "
-                        f"wedstrijden={len(got)}"
-                    )
+                    got = self.football_data.matches(comp, date_from, date_to)
+                    print(f"{comp.name}: football-data wedstrijden={len(got)}")
                 except Exception as exc:
-                    print(
-                        f"football-data faalde voor "
-                        f"{comp.name}: {exc}"
-                    )
+                    print(f"football-data faalde voor {comp.name}: {exc}")
 
-            if (
-                not got
-                and use_api_football
-                and self.api_football.enabled
-                and comp.api_football_league_id
-            ):
+            if not got and use_api_football and self.api_football.enabled and comp.api_football_league_id:
                 try:
-                    got = self.api_football.fixtures(
-                        comp,
-                        season,
-                        date_from,
-                        date_to,
-                    )
-
-                    print(
-                        f"{comp.name}: api-football "
-                        f"wedstrijden={len(got)}"
-                    )
+                    got = self.api_football.fixtures(comp, season, date_from, date_to)
+                    print(f"{comp.name}: api-football wedstrijden={len(got)}")
                 except Exception as exc:
-                    print(
-                        f"api-football faalde voor "
-                        f"{comp.name}: {exc}"
-                    )
+                    print(f"api-football faalde voor {comp.name}: {exc}")
 
             if not got:
-                print(
-                    f"{comp.name}: geen wedstrijden "
-                    "gevonden binnen deze periode"
-                )
-
+                print(f"{comp.name}: geen wedstrijden gevonden binnen deze periode")
             fixtures.extend(got)
 
         fixtures.sort(key=lambda fixture: fixture.kickoff_utc)
-
         seen = set()
         unique: List[Fixture] = []
-
         for fixture in fixtures:
             key = (
                 fixture.competition_key,
@@ -198,16 +125,10 @@ class FixtureProvider:
                 fixture.away_team.lower(),
                 fixture.kickoff_utc[:10],
             )
-
             if key in seen:
                 continue
-
             seen.add(key)
             unique.append(fixture)
 
-        print(
-            f"Fixture scan totaal: raw={len(fixtures)} "
-            f"unique={len(unique)} max={max_matches}"
-        )
-
+        print(f"Fixture scan totaal: raw={len(fixtures)} unique={len(unique)} max={max_matches}")
         return unique[:max_matches]

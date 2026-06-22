@@ -4,6 +4,7 @@ import os
 
 
 def main() -> None:
+    os.environ.setdefault("AGENT_RUN_TYPE", "heartbeat")
     # Silent status update. It never sends loud alerts and is safe to schedule once
     # late in the afternoon/evening to reassure members when no value picks exist.
     os.environ.setdefault("DAYS_AHEAD", "2")

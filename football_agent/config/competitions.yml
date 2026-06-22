@@ -13,11 +13,10 @@ competitions:
     OVER_UNDER_2_5: 0.04
     BTTS: 0.042
   promoted_teams:
-  - Coventry City
-  - Ipswich Town
-  - Hull City
+  - Leeds United
+  - Burnley
+  - Sunderland
   promoted_elo: 1435.0
-
 - key: bundesliga
   name: Bundesliga
   country: Germany
@@ -31,11 +30,9 @@ competitions:
     OVER_UNDER_2_5: 0.045
     BTTS: 0.047
   promoted_teams:
-  - Schalke 04
-  - SV Elversberg
-  - SC Paderborn
+  - FC St. Pauli
+  - Holstein Kiel
   promoted_elo: 1435.0
-
 - key: eredivisie
   name: Eredivisie
   country: Netherlands
@@ -49,11 +46,10 @@ competitions:
     OVER_UNDER_2_5: 0.055
     BTTS: 0.057
   promoted_teams:
-  - ADO Den Haag
-  - SC Cambuur
+  - FC Groningen
   - Willem II
+  - NAC Breda
   promoted_elo: 1435.0
-
 - key: ligue_1
   name: Ligue 1
   country: France
@@ -67,10 +63,10 @@ competitions:
     OVER_UNDER_2_5: 0.047
     BTTS: 0.049
   promoted_teams:
-  - Troyes
-  - Le Mans
+  - Auxerre
+  - Angers
+  - Saint-Etienne
   promoted_elo: 1435.0
-
 - key: serie_a
   name: Serie A
   country: Italy
@@ -84,11 +80,10 @@ competitions:
     OVER_UNDER_2_5: 0.045
     BTTS: 0.047
   promoted_teams:
+  - Parma
+  - Como
   - Venezia
-  - Frosinone
-  - Monza
   promoted_elo: 1435.0
-
 - key: la_liga
   name: La Liga
   country: Spain
@@ -102,10 +97,10 @@ competitions:
     OVER_UNDER_2_5: 0.043
     BTTS: 0.045
   promoted_teams:
-  - Racing Santander
-  - Deportivo La Coruna
+  - Leganes
+  - Real Valladolid
+  - Espanyol
   promoted_elo: 1435.0
-
 - key: belgian_pro_league
   name: Belgian Pro League
   country: Belgium
@@ -119,6 +114,48 @@ competitions:
     OVER_UNDER_2_5: 0.06
     BTTS: 0.062
   promoted_teams:
-  - Beveren
-  - Kortrijk
+  - Dender
+  - Beerschot
+  promoted_elo: 1435.0
+- key: champions_league
+  name: Champions League
+  country: Europe
+  type: europe
+  football_data_code: CL
+  api_football_league_id: 2
+  priority: 1
+  min_edge_threshold: 0.035
+  market_min_edge_thresholds:
+    1X2: 0.035
+    OVER_UNDER_2_5: 0.04
+    BTTS: 0.042
+  promoted_teams: []
+  promoted_elo: 1435.0
+- key: europa_league
+  name: Europa League
+  country: Europe
+  type: europe
+  football_data_code: null
+  api_football_league_id: 3
+  priority: 1
+  min_edge_threshold: 0.05
+  market_min_edge_thresholds:
+    1X2: 0.05
+    OVER_UNDER_2_5: 0.055
+    BTTS: 0.057
+  promoted_teams: []
+  promoted_elo: 1435.0
+- key: conference_league
+  name: Conference League
+  country: Europe
+  type: europe
+  football_data_code: null
+  api_football_league_id: 848
+  priority: 2
+  min_edge_threshold: 0.06
+  market_min_edge_thresholds:
+    1X2: 0.06
+    OVER_UNDER_2_5: 0.065
+    BTTS: 0.067
+  promoted_teams: []
   promoted_elo: 1435.0
