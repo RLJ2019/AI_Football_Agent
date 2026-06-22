@@ -1,94 +1,136 @@
 # V25 Multi-League Value Prediction Engine
 
-## V25.0.9 Premium Reliability & Sharp Market Upgrade
+## V25.1.0 Phase 1 — Shadow Database Infrastructure
 
-Deze build voegt premiumgroep-hardening toe: luide intrekkingen, jargonvrije Gemini-uitleg, gedeelde workflow-concurrency, atomic notification-state writes, webhook retry/idempotency voor Live Sheet, minder dubbel gestrafte staking, sharp/no-vig fair odds in Telegram en order-invariant logit-attributie.
+Deze build voegt een veilige dual-write database-laag toe zonder de bestaande, werkende V25.0.9-pipeline te vervangen.
 
+> Bestaande CSV/JSON + Telegram blijven leidend. Supabase/PostgreSQL draait uitsluitend als shadow mirror totdat parity aantoonbaar 100% is.
 
-## V25.0.7 Premium Telegram Operations Upgrade
+## Wat deze build doet
 
-Professionele multi-league voetbalagent met als uitgangspunt:
+- Optionele server-side Supabase REST-verbinding.
+- Fail-open shadow writes: database-uitval breekt de agent, Telegram of artifacts niet.
+- Centrale shadow-tabellen voor fixtures, picks, pick-events, notification-state, odds snapshots en workflow-runs.
+- Deterministische `pick_id` en `identity_key`, zodat herhaalde runs geen dubbele picks creëren.
+- Append-only event ledger via `pick_events`.
+- Lokale auditbestanden:
+  - `output/shadow_database_report.json`
+  - `output/shadow_database_failures.jsonl` bij fouten
+  - `output/shadow_parity_report.json`
+- Database-healthcheck en shadow-parity scripts.
+- Alle vier workflows ondersteunen dezelfde databaseconfiguratie en dezelfde shared cache-prefix tijdens de migratiefase.
+- Telegram blijft centraal via `TELEGRAM_ENABLED` aan/uit te zetten.
 
-> Het model voorspelt. Gemini legt uit.
+## Belangrijk
 
-De agent scant wedstrijden uit meerdere competities, corrigeert bookmaker-odds voor marge, vergelijkt modelkansen met de markt, selecteert alleen value-picks en logt alle voorspellingen voor evaluatie op Brier-score, ROI en Closing Line Value.
+V25.1.0 Phase 1 verandert niet:
 
-## Nieuw in V25.0.7
+- de modelbeslissing;
+- de Value Pick-selectie;
+- staking;
+- Telegram-deduplicatie;
+- de line-upmonitor;
+- de huidige CSV/JSON-bron van waarheid.
 
-Deze build voegt premium Telegram-community operations toe bovenop de V25.0.6 model-engine:
-
-- Loud/silent Telegram-notificatiebeleid: dagrapporten en heartbeats stil, echte VALUE PICK-alerts luid.
-- Notificatie-state om dubbele alerts te voorkomen bij meerdere scans per dag.
-- Status-transities: watchlist naar value pick, value pick update en ingetrokken picks worden apart behandeld.
-- Event-driven line-up monitor via `python -m football_agent.scripts.run_lineup_monitor` en een GitHub Actions workflow elke 15 minuten.
-- Heartbeat-run via `python -m football_agent.scripts.run_heartbeat` voor stille geruststellende statusupdates.
-- Live sheet export naar `output/live_picks_sheet.csv` en optionele `LIVE_SHEET_URL` in Telegram.
-- Telegram pick-alerts tonen nu units, min. odds, EV, confidence, datakwaliteit, uncertainty en line-up status.
-- Bankroll-discpline blijft defensief: fractional Kelly, stake caps en exposure caps.
-
-
-## Nieuw in V25.0.5
-
-Deze build verwerkt de nieuwste audit-aanbevelingen:
-
-- ML-voorbereide, competitie-specifieke overlay-gewichten via `learned_model_weights.json`.
-- Offline trainingsscript `python -m football_agent.scripts.run_weight_training`.
-- Exponential time-decay in het xG-model, zodat recente wedstrijden zwaarder wegen.
-- Sharp odds velocity / implied movement als actieve guardrail tegen picks die tegen de scherpe markt in gaan.
-- Bootstrapped uncertainty intervals op basis van feature-attributie.
-- ValueEngine uitgebreid naar 1X2, Over/Under 2.5 en BTTS-markten.
-- API-Football odds-parser uitgebreid voor Over/Under 2.5 en BTTS.
-- Prediction log uitgebreid met feature-attributie, marktsoort en sharp movement.
-
-- xG-normalisatie naar xG per 90 minuten via `minutes_played` in match-level teamvorm.
-- International-break filter met verhoogde onzekerheid en line-up guardrail.
-- Fractional Kelly stake-indicatie met harde caps en uncertainty-discount.
-- Candidate recalibration: training schrijft eerst candidate weights + validatierapport, geen blind auto-push.
-- Weekly GitHub Actions workflow voor candidate recalibration.
-- Backtest-integriteitschecks tegen lookahead bias.
-- Markt-specifieke backtest/evaluatie voor 1X2, Over/Under 2.5 en BTTS.
-
-## Competities
-
-- Premier League
-- Bundesliga
-- Eredivisie
-- Ligue 1
-- Serie A
-- La Liga
-- Belgische Pro League
-- Champions League
-- Europa League
-- Conference League
-
-Nationale bekers zijn bewust niet opgenomen in deze build.
-
-## V25.0.9 Premium Staking & Line-up Hygiene
-
-Deze versie voegt defensieve staking, min. odds voor value, watchlist-gerichte line-up monitoring, Telegram discipline en een optionele Google Sheet webhook bridge toe.
-
-Belangrijkste communityregel: VALUE PICK alerts zijn luid; dagrapporten, heartbeats en intrekkingen zijn stil. Unitadvies is altijd in units, nooit in eurobedragen.
-
+De database is in deze fase nog **niet** leidend.
 
 ## Installatie
 
 ```bash
 python -m pip install --upgrade pip
 pip install -r requirements.txt
+python -m compileall football_agent -q
 python smoke_test.py
 python -m unittest discover -s tests
 ```
 
-## Secrets / environment variables
+## Supabase eenmalig instellen
+
+1. Maak een Supabase-project aan.
+2. Open de SQL Editor.
+3. Voer volledig uit:
+
+```text
+football_agent/database/migrations/001_initial_schema.sql
+```
+
+4. Maak in GitHub bij **Settings → Secrets and variables → Actions → Secrets** aan:
+
+```text
+SUPABASE_URL
+SUPABASE_SECRET_KEY
+```
+
+De secret/service-role key is uitsluitend server-side. Plaats hem nooit in Git, een artifact, CSV, Google Sheet of frontend.
+
+5. Maak bij **Variables** aan:
+
+```text
+DATABASE_ENABLED=true
+DATABASE_SHADOW_MODE=true
+DATABASE_FAIL_OPEN=true
+DATABASE_TIMEOUT_SECONDS=20
+DATABASE_MAX_RETRIES=2
+DATABASE_BATCH_SIZE=250
+SHADOW_COMPARE_SINCE_UTC=
+```
+
+Tijdens de eerste installatie mag `DATABASE_ENABLED=false` blijven. De agent blijft dan exact functioneren zoals V25.0.9.
+
+## Database-healthcheck
+
+Lokaal:
 
 ```bash
-FOOTBALL_DATA_API_KEY=...
-API_FOOTBALL_KEY=...
-GEMINI_API_KEY=...
-GEMINI_MODEL=gemini-2.5-flash
-TELEGRAM_BOT_TOKEN=...
-TELEGRAM_CHAT_ID=...
-LIVE_SHEET_URL=https://...  # optioneel via GitHub vars
+python -m football_agent.scripts.run_database_healthcheck
+```
+
+Of handmatig via de daily workflow met mode:
+
+```text
+database_healthcheck
+```
+
+Verwachte uitkomst:
+
+```text
+reachable: true
+message: Supabase REST connection OK.
+```
+
+## Shadow parity vergelijken
+
+Na enkele runs:
+
+```bash
+python -m football_agent.scripts.compare_shadow_state
+```
+
+Of kies in de daily workflow:
+
+```text
+compare_shadow
+```
+
+De vergelijking controleert:
+
+- unieke lokale picks versus databasepicks;
+- ontbrekende of onverwachte records;
+- dubbele database-identiteiten;
+- notification-state status/signature mismatches;
+- shadow parity-percentage.
+
+## Acceptatiecriteria vóór Phase 2
+
+De database mag pas leidend worden na minimaal vijf echte speeldagen met:
+
+```text
+100% lokale picks aanwezig in database
+0 database-duplicaten
+0 ontbrekende statuswijzigingen
+0 notification-state mismatches
+database-uitval breekt geen agentrun
+herhaalde runs creëren geen dubbele records
 ```
 
 ## Dagelijkse run
@@ -103,7 +145,7 @@ python run_agent.py
 python -m football_agent.scripts.run_lineup_monitor
 ```
 
-Deze run analyseert alleen wedstrijden die exact in de T-65 tot T-45 minuten line-up window vallen. Dagrapporten staan uit; alleen nieuwe/gewijzigde VALUE PICK-alerts of ingetrokken picks worden verstuurd.
+De monitor gebruikt praktisch een T-65 tot T-45 window. GitHub Actions garandeert geen exact T-55-startmoment.
 
 ## Heartbeat
 
@@ -111,58 +153,30 @@ Deze run analyseert alleen wedstrijden die exact in de T-65 tot T-45 minuten lin
 python -m football_agent.scripts.run_heartbeat
 ```
 
-Deze run stuurt alleen een stille statusupdate wanneer er geen value picks zijn. Hiermee voorkom je paniek in een premium Telegramgroep tijdens droge marktdagen.
-
-## Backtest
+## Backtest en weight-training
 
 ```bash
 python -m football_agent.scripts.run_backtest
-```
-
-Verwachte CSV: `output/historical_predictions.csv` met minimaal:
-
-```text
-competition_key, selection, actual, odds, model_probability
-```
-
-## Gewichten trainen
-
-```bash
 python -m football_agent.scripts.run_weight_training
 ```
 
-Standaard leest dit `output/prediction_log.csv` en schrijft candidate weights naar:
+## Telegrambeleid
+
+- Dagrapport: stil.
+- Heartbeat: stil.
+- Value Pick: luid.
+- Pick gewijzigd/bevestigd: luid.
+- Pick ingetrokken: luid.
+- Geen eurobedragen; staking wordt in units weergegeven.
+
+## Volgende fasen
 
 ```text
-output/candidate_learned_model_weights.json
-output/weight_training_report.json
+Phase 2: database wordt source of truth voor state en notificaties
+Phase 3: polymorfe settlement, closing snapshots en dual-metric CLV
+Phase 4: wekelijkse Telegramrapportage en volledige Google Sheet-spiegel
 ```
-
-Belangrijk: training blijft conservatief en overschrijft productiegewichten niet blind. Promotie naar `learned_model_weights.json` gebeurt alleen bij voldoende sample size en aantoonbare verbetering.
-
-## Belangrijke professionele beperkingen
-
-Deze build is technisch compleet en modulair opgezet, maar de voorspellende kracht hangt volledig af van de kwaliteit van de data. Zonder verse odds, opening/closing odds, line-ups, blessures en teamstats zal de agent streng filteren en meestal `NO_BET` geven. Dat is bewust gedrag.
-
-Voor echte live-value is minimaal nodig:
-
-1. Verse odds met timestamps.
-2. Opening en closing odds voor CLV.
-3. Sharp/soft bookmakerprofielen.
-4. Betrouwbare teamstats/xG.
-5. Blessure- en line-updata.
-6. Historische backtestdata voor kalibratie.
 
 ## Filosofie
 
-Minder picks. Betere picks. Geen schijnzekerheid.
-
-
-## V25.0.6 Promoted, Thresholds & Game-State Upgrade
-
-Deze build voegt drie professionele live-season correcties toe:
-
-- Bayesian promovendi-Elo: promoted teams starten met een lagere prior (standaard 1435) totdat live resultaten de rating overnemen.
-- Competitie- en markt-specifieke EV-thresholds: Premier League/Champions League kunnen scherper zijn, Belgische Pro League/Conference League krijgen een hogere veiligheidsmarge.
-- Game-state normalized xG: waar beschikbaar gebruikt het xG-model xG bij gelijke stand of maximaal 1 doelpunt verschil, zodat garbage-time en standvulling minder invloed hebben.
-
+Minder picks. Betere picks. Geen schijnzekerheid. Volledig auditeerbaar.
